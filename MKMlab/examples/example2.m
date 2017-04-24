@@ -1,8 +1,15 @@
 filename = 'NH3_synthesis.mkm';
-T = 700;
-gases = {'N2','H2','NH3'};
-P_tot = 100;
-P_i = [0.25*P_tot 0.75*P_tot,10];
+T = linspace(400,700,100);
+gases = {'N2','H2'};
+P_i = [25 75];
 TOF_species = 'NH3';
-sol = run_mkm(filename,T,gases,P_i,'TOF_species',TOF_species);
-plot_coverages(sol);
+
+TOF = zeros(1,length(T));
+for i = 1:length(T)
+    sol = run_mkm(filename,T(i),gases,P_i,'TOF_species',TOF_species);
+    TOF(i) = sol.TOF;
+end
+
+plot(T,TOF)
+xlabel('Temperature (K)')
+ylabel('TOF (site^{-1} s^{-1})')
