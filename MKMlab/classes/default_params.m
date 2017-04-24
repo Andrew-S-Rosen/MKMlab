@@ -4,8 +4,8 @@ classdef default_params
     properties (Constant)
         ODE_algorithm = 'ode15s';
         DAE = false;
-        ss_deriv_tol = 1E-6;
-        ss_diff_tol = 1E-10;
+        ss_deriv_tol = 1E-5;
+        ss_diff_tol = 1E-6;
         ODE_rel_tol = 1E-3;
         ODE_abs_tol = 1E-6;
         root_algorithm = 'levenberg-marquardt';
