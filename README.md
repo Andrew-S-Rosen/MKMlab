@@ -1,3 +1,2 @@
 # MKMlab
-MATLAB program for microkinetic modeling in catalysis
-Documentation to come soon.
+MATLAB program for microkinetic modeling in catalysis. Documentation to come soon.
