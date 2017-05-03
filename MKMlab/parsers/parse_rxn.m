@@ -1,15 +1,5 @@
 function [reacts,prods,nu_r,nu_p,flag_rev] = parse_rxn(eq)
 %parses reaction string for species and stochiometric numbers
-%
-%INPUTS:
-%eq - string: full reaction expressions
-%
-%OUTPUTS:
-%reacts - cell array of strings: reactants for reaction
-%prods - cell array of strings: products for reaction
-%nu_r - vector of doubles: stoichiometric coefficients for reactants in reaction
-%nu_p - vector of doubles: stoichiometric coefficients for products in reaction
-%flag_rev - logical: true if reaction is reversible or false if not
 
 %Convert equation string into consistent format
 eq = strrep(eq,'->','>');

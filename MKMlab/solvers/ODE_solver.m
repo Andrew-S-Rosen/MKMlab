@@ -1,45 +1,17 @@
-function sol = ODE_solver(eqn_handle_str,y0,tspan,log_val,ODE_options)
+function sol = ODE_solver(eqn_handle_str,y0,options)
 %solve microkinetic model for coverages via a system of ODEs or DAEs
-%
-%INPUTS:
-%eqn_handle_str - string: expression for system of equations
-%y0 - row vector: initial coverage for each site species
-%tspan - two-element column vevtor: time span for integration (disables QSS assumption)
-%ODE_solver - stirng: ODE solver to use (ode15s, ode23s, ode23t, ode23tb, ode45, ode23, or ode113)
-%
-%OPTIONAL INPUTS:
-%log_val - logical: true if information should be printed to screen or false if not (default: false)
-%ODE_options - structure: structure containing ODE options (see odeset optional arguments in run_mkm for details)
-%
-%OUTPUTS:
-%sol - structure: solution to the microkinetic model, containing the following fields:
-%sol.theta - N x M matrix of doubles: fractional coverages for M species over N time points (N = 1 if QSS is implied)
-%sol.t - vector of doubles of length N: time points for integration
 
-%set integration options
-if nargin == 3
-    ODE_algorithm = default_params.ODE_algorithm;
-    DAE = default_params.DAE;
-    ss_deriv_tol = default_params.ss_deriv_tol;
-    ss_diff_tol = default_params.ss_diff_tol;
-    ODE_rel_tol = default_params.ODE_rel_tol;
-    ODE_abs_tol = default_params.ODE_abs_tol;
-elseif nargin == 4 || nargin == 5
-    ODE_algorithm = ODE_options.ODE_algorithm;
-    DAE = ODE_options.DAE;
-    ss_deriv_tol = ODE_options.ss_deriv_tol;
-    ss_diff_tol = ODE_options.ss_diff_tol;
-    ODE_rel_tol = ODE_options.ODE_rel_tol;
-    ODE_abs_tol = ODE_options.ODE_abs_tol;
-else
-    error('Invalid number of input arguments')
-end
+%unpack structures
+tspan = options.ODE_options.tspan;
+log_val = options.log;
+ODE_algorithm = options.ODE_options.ODE_algorithm;
+ss_deriv_tol = options.ODE_options.ss_deriv_tol;
+ss_diff_tol = options.ODE_options.ss_diff_tol;
+ODE_rel_tol = options.ODE_options.ODE_rel_tol;
+ODE_abs_tol = options.ODE_options.ODE_abs_tol;
+DAE = options.ODE_options.DAE;
 
 odeset_options = odeset('RelTol',ODE_rel_tol,'AbsTol',ODE_abs_tol);
-
-if nargin == 4
-    log_val = true;
-end
 
 if isempty(tspan) == true
     QSS = true;

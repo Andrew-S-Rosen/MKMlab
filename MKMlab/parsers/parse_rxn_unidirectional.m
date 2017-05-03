@@ -1,12 +1,5 @@
 function [species,nu] = parse_rxn_unidirectional(eq_uni)
 %gets species and stoichiometric numbers for one side of a reaction equation
-%
-%INPUTS:
-%eq_uni - string: reaction string for reaction equation in one direction
-%
-%OUTPUTS:
-%species - cell array of strings: species in the unidirecitonal reaction
-%nu - vector of doubles: stoichiometric coefficients for each species in equation
 
 %pre-allocate
 species_with_num = {};

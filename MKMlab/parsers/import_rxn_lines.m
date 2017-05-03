@@ -1,11 +1,5 @@
 function rxn_lines = import_rxn_lines(filename)
 %import each line containing a reaction in the input file
-%
-%INPUTS:
-%filename - string: the filename of the mechanism text file
-%
-%OUTPUTS:
-%rxn_lines - cell array of strings: each line in mechanism text file
 
 %open file
 fid = fopen(filename);

@@ -1,38 +1,24 @@
-function [eqn_handle_str,site_species] = get_net_rate_production(filename,T,gases_str,provided_P,eqn_type,log_val,TOF_species)
+function rxn_struct = get_net_rate_production(filename,conditions,options)
 %generate string representation for net rates of production
-%
-%INPUTS:
-%filename - string: filename of reaction mechanism file
-%T - double: absolute temperature
-%gases_str - cell array of strings: gas-phase species
-%provided_P - vector of doubles: partial pressures for each gas species
-%
-%OPTIONAL INPUTS:
-%log_val - logical: true if information should be printed to screen or false if not (default: true)
-%eqn_type - double: (1) gets system of ODEs; (2) gets system of ODEs; (3) gets equation for calculating TOF
-%TOF_species - string: species to obtain TOF equation for (only included if eqn_type = 3)
-%
-%OUTPUTS:
-%eqn_handle_str - string: string representation of function handle for system of equations
-%site_species - cell array of strings: list of all site species, including the bare catalyst site
 
-%set defaults for DAE and log_val if not specified
-if nargin == 5
-    log_val = true;
-end
-
-if exist('TOF_species','var') == true && eqn_type ~=3
-    error('TOF_species can only be specified if eqn_type is set to 3')
-elseif exist('TOF_species','var') == false && eqn_type == 3
-    error('TOF_species must be included if eqn_type is set to 3')
-end
-
-if eqn_type ~=1 && eqn_type ~= 2 && eqn_type ~= 3
-    error('Input argument eqn_type can only take on values of 1, 2, or 3')
-end
+%unpack conditions and options structures
+T = conditions.T;
+gases_str = conditions.gases;
+provided_P = conditions.provided_P;
+DAE = options.ODE_options.DAE;
+TOF_species = options.TOF_species;
 
 %parse input file for reaction details
-[reacts,prods,nu_r,nu_p,A,Ea,flag_rev] = parse_mechanism_file(filename,log_val);
+rxn_struct = parse_mechanism_file(filename,conditions,options);
+
+%unpack rxn structure
+reacts = rxn_struct.reacts;
+prods = rxn_struct.prods;
+nu_r = rxn_struct.nu_r;
+nu_p = rxn_struct.nu_p;
+A = rxn_struct.A_vec;
+Ea = rxn_struct.Ea_vec;
+flag_rev = rxn_struct.flag_rev;
 
 %combine reactants and products to get all species (includes duplicates)
 rxn_species = [reacts prods];
@@ -42,14 +28,9 @@ species = unique([rxn_species{:}]);
 
 %define number of rxns
 n_rxns = length(flag_rev);
-n_rev = sum(flag_rev);
-n_rxns_tot = n_rxns + n_rev;
 
 %for every reaction, calculate k
-k = zeros(1,n_rxns_tot);
-for i = 1:n_rxns_tot
-    k(i) = calculate_k(A(i),Ea(i),T);
-end
+k = calculate_k(A,Ea,T);
 
 %define gas species as those without a *
 gas_species = species(contains(species,'*') == false);
@@ -62,7 +43,6 @@ end
 %for every gas-phase species, assign partial pressure
 P = zeros(1,length(gas_species));
 for i = 1:length(gas_species)
-    
     gas_loc = find(strcmp(gases_str,gas_species{i}));
     if isempty(gas_loc) == true
         P(i) = 0; %set pressure to 0 as default
@@ -90,6 +70,7 @@ for i = 1:n_rxns
     idx = i + rev_counter;
     
     %calculate forward rxn rate
+    
     r_f{i} = get_rxn_rate(gas_species,site_species,P,reacts{i},nu_r{i},k(idx));
     
     %if reversible, account for reverse rate
@@ -103,24 +84,21 @@ for i = 1:n_rxns
 end
 
 %number of equations to generate
-if eqn_type == 1
+if DAE == false
     n_eqns = length(site_species);
-elseif eqn_type == 2
+else
     n_eqns = length(ads_species);
-elseif eqn_type == 3
-    n_eqns = 1;
 end
 
 %get expressions for net rates of production
 rate_production = cell(1,n_eqns);
+
 for i = 1:n_eqns
     
-    if eqn_type == 1
+    if DAE == false
         species_to_solve = site_species{i};
-    elseif eqn_type == 2
+    else
         species_to_solve = ads_species{i};
-    elseif eqn_type == 3
-        species_to_solve = TOF_species;
     end
     
     %for each reaction, get rate of production for species i
@@ -133,7 +111,8 @@ for i = 1:n_eqns
         end
         
         %get expression for rate of production of species i in rxn j
-        net_rate_j = get_rate_production(species_to_solve,reacts{j},prods{j},nu_r{j},nu_p{j},R{j});
+        net_rate_j = get_rate_production(species_to_solve,reacts{j},...
+            prods{j},nu_r{j},nu_p{j},R{j});
         
         %net rate of production of species i is sum of rate of its rate of production in each rxn
         if iter == 1
@@ -147,5 +126,44 @@ for i = 1:n_eqns
 end
 
 eqn_handle_str = strcat('[',strjoin(rate_production,';'),']');
+
+if isempty(TOF_species) == false
+
+    species_to_solve = TOF_species;
+    %for each reaction, get rate of production for species i
+    iter = 1;
+    for j = 1:n_rxns
+
+        %if species not found in rxn j, go to next iteration
+        if sum(strcmp(species_to_solve,reacts{j})) == 0 && sum(strcmp(species_to_solve,prods{j})) == 0
+            continue
+        end
+
+        %get expression for rate of production of species i in rxn j
+        net_rate_j = get_rate_production(species_to_solve,reacts{j},...
+            prods{j},nu_r{j},nu_p{j},R{j});
+
+        %net rate of production of species i is sum of rate of its rate of production in each rxn
+        if iter == 1
+            rate_production = {strcat('(',net_rate_j,')')};
+        else
+            rate_production = {strcat(rate_production,'+(',net_rate_j,')')};
+        end
+
+        iter = iter + 1;
+    end
+
+    TOF_eqn_handle_str = strcat('[',strjoin(rate_production,';'),']');
+    [rxn_struct.TOF_eqn_handle_str] = TOF_eqn_handle_str;
+
+end
+
+%add fields to rxn_struct
+[rxn_struct.k] = deal(k);
+[rxn_struct.P] = deal(P);
+[rxn_struct.site_species] = deal(site_species);
+[rxn_struct.gas_species] = deal(gas_species);
+[rxn_struct.n_rxns] = deal(n_rxns);
+[rxn_struct.eqn_handle_str] = deal(eqn_handle_str);
 
 end

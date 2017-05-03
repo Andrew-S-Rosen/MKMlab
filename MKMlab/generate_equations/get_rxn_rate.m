@@ -1,16 +1,5 @@
 function r = get_rxn_rate(gas_species,site_species,P,reactants,nu,k)
 %gets string describing unidirectional reaction rate
-%
-%INPUTS:
-%gas_species - cell array of strings: list of gas species
-%site_species - cell array of strings: list of site species
-%P - vector of doubles: pressure for each gas-species
-%reactants - cell array of strings: all reactants in reaction
-%nu - vector of doubles: stoichiometric number for reactants
-%k - double: rate constant for reaction
-%
-%OUTPUTS:
-%r - string: equation for the unidirectional reaction rate
 
 %define string variables theta(1) theta(2) ... theta(N)
 theta_vars = cell(1,length(site_species));

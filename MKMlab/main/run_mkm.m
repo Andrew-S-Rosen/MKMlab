@@ -1,92 +1,21 @@
-function sol = run_mkm(filename,T,gases_str,provided_P,varargin)
-%given input file and experimental conditions, construct and solve a microkinetic model
-%
-%INPUTS:
-%filename - string: filename of reaction text file
-%T - double: absolute temperature
-%gases_str - cell array of strings: gas-phase species
-%provided_P - vector of doubles: partial pressures for each gas species
-%
-%OPTIONAL INPUTS (positional values):
-%sites_str - cell array of strings: site species, including bare sites, used to define initial conditions (default: {'*'})
-%provided_y0 - vector of doubles: initial fractional coverages for each site species (default: 1 for bare site)
-%
-%OPTIONAL INPUTS (name-value pairs):
-%ODE_algorithm - string: ODE solver to use. options include ode15s, ode23s, ode23t, ode23tb, ode45, ode23, and ode 113 (default: 'ode15s')
-%tspan - column vector of length 2: time span for integration. if not specified, QSS is assumed (default: [])
-%DAE - logical: true if conservation law is explicitly included in system of equations (i.e. system of DAEs) or false if not (i.e. system of ODEs) (default: false)
-%TOF_species - string: species to evaluate TOF for
-%ss_deriv_tol - double: steady-state criterion based on d(theta)/dt for ODE/DAE solver (default: 1E-5)
-%ss_diff_tol - double: steady-state criterion based on relative change in theta for ODE/DAE solver (default: 1E-6)
-%ODE_rel_tol - double: relative tolerance specified in odset option (default: 1E-3)
-%ODE_abs_tol - double: absolute tolerance specified in odset option (default: 1E-6)
-%root_algorithm - string: root-finding algorithm for fsolve specified in optimoptions (default: 'levenberg-marquardt')
-%root_max_fun_eval - double: maximum function evaluations for fsolve specified in optimoptions (default: 10000)
-%root_fun_tol - double: function tolerance for fsolve specified in optimoptions (default: 1E-6)
-%root_max_iter - double: maximum iterations for fsolve specified in optimoptions (default: 10000)
-%root_step_tol - double: step tolerance for fsolve specified in optimoptions (default: 1E-6)
-%log - logical: true if information should be printed to screen or false if not (default: false)
+function [soln_struct,rxn_struct] = run_mkm(filename,T,gases_str,provided_P,varargin)
+%given input file and experimental inputs, construct and solve a microkinetic model
 
-%OUTPUTS:
-%sol - structure: solution to the microkinetic model, containing the following fields:
-%sol.theta - N x M matrix of doubles: fractional coverages for M species over N time points (N = 1 if QSS is implied)
-%sol.t - vector of doubles of length N: time points for integration
-%sol. site_species - cell array of strings of length N: adsorbed species, including the bare catalyst site, corresponding to sol.theta
-%sol.TOF - double: TOF for specified TOF_species
+%parse inputs
+[inputs, options] = parse_inputs(filename,T,gases_str,provided_P,varargin);
 
-%ensure user provides partial pressure for each gas species listed
-if length(gases_str) ~= length(provided_P)
-    error('Array of partial pressures is not same length as array of gas species')
-end
+%unpack structure
+log = options.log;
+sites_str = inputs.sites_str;
+provided_y0 = inputs.provided_y0;
+tspan = options.ODE_options.tspan;
+DAE = options.ODE_options.DAE;
+optim_options = options.optim_options;
+TOF_species = options.TOF_species;
 
-%ensure temperature is positive
-if T <= 0
-    error('Temperature is in Kelvins (must be > 0)')
-end
-
-%ensure pressures are positive
-if sum(provided_P < 0) > 0
-    error('Partial pressures must be >= 0')
-end
-
-%parse input
-input_results = parse_inputs(filename,T,gases_str,provided_P,varargin);
-
-%define optional parameters based on user input
-sites_str = input_results.sites_str;
-provided_y0 = input_results.provided_y0;
-tspan = input_results.tspan;
-DAE = input_results.DAE;
-ODE_algorithm = input_results.ODE_algorithm;
-ss_deriv_tol = input_results.ss_deriv_tol;
-ss_diff_tol = input_results.ss_diff_tol;
-ODE_rel_tol = input_results.ODE_rel_tol;
-ODE_abs_tol = input_results.ODE_abs_tol;
-log_val = input_results.log;
-root_algorithm = input_results.root_algorithm;
-root_max_fun_eval = input_results.root_max_fun_eval;
-root_fun_tol = input_results.root_fun_tol;
-root_max_iter = input_results.root_max_iter;
-root_step_tol = input_results.root_step_tol;
-TOF_species = input_results.TOF_species;
-
-if sum(provided_y0) ~= 1
-    error('Sum of initial coverages does not equal 1')
-end
-
-if DAE == false
-    coverage_eqn_type = 1;
-else
-    coverage_eqn_type = 2;
-end
-
-%set ODE and fsolve options
-ODE_options = struct('ODE_algorithm',ODE_algorithm,'DAE',DAE,'ss_deriv_tol',ss_deriv_tol,'ss_diff_tol',ss_diff_tol,'ODE_rel_tol',ODE_rel_tol,'ODE_abs_tol',ODE_abs_tol);
-optim_options = optimoptions(@fsolve,'Display','off','FiniteDifferenceType','central','Algorithm',root_algorithm,'MaxFunctionEvaluations',root_max_fun_eval,'FunctionTolerance',root_fun_tol,'MaxIterations',root_max_iter,'StepTolerance',root_step_tol);
-
-%print experimental conditions
-if log_val == true
-    fprintf('*******************************************\nExperimental Conditions:\n\n')
+%print experimental inputs
+if log == true
+    fprintf('*******************************************\nExperimental inputs:\n\n')
     fprintf('Temperature: %g K\n',T)
     disp(table(gases_str',provided_P','VariableNames',{'Gases','Partial_Pressures'}))
     fprintf('\n')
@@ -94,9 +23,13 @@ if log_val == true
 end
 
 %get rate of production for each site species
-[eqn_handle_str,site_species] = get_net_rate_production(filename,T,gases_str,provided_P,coverage_eqn_type,log_val);
+rxn_struct = get_net_rate_production(filename,inputs,options);
 
-%Solve the system of equations for coverages
+%unpack structure
+site_species = rxn_struct.site_species;
+eqn_handle_str = rxn_struct.eqn_handle_str;
+
+%solve the system of equations for coverages
 if length(sites_str) ~= length(provided_y0)
     error('Array of initial fractional coverages is not same length as array of site species')
 end
@@ -123,41 +56,42 @@ for i = 1:n_vars
     end
 end
 
-%solve for coverages using ODE/DAE solver
-ODE_sol = ODE_solver(eqn_handle_str,y0,tspan,log_val,ODE_options);
+%solve for coverages using ODE/inputs.DAE solver
+soln_struct = ODE_solver(eqn_handle_str,y0,options);
 
 %solve for roots using fsolve if QSS is implied using ODE_sol as initial guess
 if isempty(tspan) == true && license('test','Optimization_Toolbox') == true
-    guess = ODE_sol.theta';
-    root_sol = root_solver(eqn_handle_str,n_vars,guess,log_val,DAE,optim_options);
-    sol = root_sol;
+    soln_struct = root_solver(soln_struct.theta',rxn_struct,options);
 elseif isempty(tspan) == true && license('test','Optimization_Toolbox') == false
     warning('Optimization toolbox not installed. Steady-state coverages determined from integration only')
-    sol = ODE_sol;
-else
-    sol = ODE_sol;
 end
 
+theta = soln_struct.theta;
+
 %print coverage results
-if log_val == true
+if log == true
     if isempty(tspan) == true
         fprintf('*******************************************\nResults at steady-state:\n\n')
-        disp(table(site_species',sol.theta','VariableNames',{'Species','Coverage'}))
+        disp(table(site_species',theta','VariableNames',{'Species','Coverage'}))
     else
         fprintf('*******************************************\nResults at end-time:\n\n')
-        disp(table(site_species',sol.theta(:,end),'VariableNames',{'Species','Coverage'}))
+        disp(table(site_species',theta(:,end),'VariableNames',{'Species','Coverage'}))
     end
 end
 
-%include site species in output structure
-[sol.site_species] = deal(site_species);
+%add entries to structures
+[soln_struct.site_species] = deal(site_species);
+[rxn_struct.y0] = deal(y0);
 
-%solve for TOF and add to output structure
+%solve for TOF and add to soln_struct structure
 if isempty(TOF_species) == false
-    TOF_eqn_type = 3;
-    TOF_eqn_handle_str = get_net_rate_production(filename,T,gases_str,provided_P,TOF_eqn_type,log_val,TOF_species);
-    TOF = calculate_TOF(TOF_eqn_handle_str,sol.theta');
-    [sol.TOF] = deal(TOF);
+    TOF_eqn_handle_str = rxn_struct.TOF_eqn_handle_str;
+    if isempty(tspan) == true
+        TOF = calculate_TOF(TOF_eqn_handle_str,theta');
+    else
+        TOF = calculate_TOF(TOF_eqn_handle_str,theta(:,end)');
+    end
+    [soln_struct.TOF] = deal(TOF);
 end
 
 end

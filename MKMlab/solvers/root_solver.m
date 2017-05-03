@@ -1,20 +1,14 @@
-function sol = root_solver(eqn_handle_str,n_vars,guess,log_val,DAE,optim_options)
-%solves system of equations for roots using fsolve
-%INPUTS:
-%eqn_handle_str - string: string representation of function handle for system of equations
-%n_vars - double: number of variables (i.e. number of unique site species)
-%guess - vector of doubles: initial guess for each variable in system of equations
-%
-%OPTIONAL INPUTS:
-%log_val - logical: true if information should be printed to screen or false if not (default: true)
-%DAE - logical: true if system of DAEs is to be solved or false if ODEs are to be solved (default: false)
-%optim_options - structure: structure containing fsolve options (see optimoptions optional arguments in run_mkm for details)
-%
-%OUTPUTS:
-%sol - structure: solution to the microkinetic model, containing the following field:
-%sol.theta - array of doubles: fractional coverages for each site species
+function sol = root_solver(guess,rxn_struct,options)
 
-if log_val == true
+eqn_handle_str = rxn_struct.eqn_handle_str;
+n_vars = length(rxn_struct.site_species);
+log = options.log;
+DAE = options.ODE_options.DAE;
+optim_options = options.optim_options;
+
+%solves system of equations for roots using fsolve
+
+if log == true
     fprintf('*******************************************\nAlgebraic Root-Finding:\n\n')
 end
 
@@ -44,7 +38,7 @@ end
 sol = struct('theta',f_sol);
 
 %print root-finding details
-if log_val == true
+if log == true
     fprintf('d(theta)/dt:\n')
     disp(fun(f_sol))
     fprintf('\nError in site balance: %g\n',1-sum(f_sol))

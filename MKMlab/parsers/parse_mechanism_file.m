@@ -1,24 +1,5 @@
-function [reacts,prods,nu_r,nu_p,A_vec,Ea_vec,flag_rev] = parse_mechanism_file(filename,log_val)
+function rxn_struct = parse_mechanism_file(filename,inputs,options)
 %parses input file for species, reactions, and reaction parameters
-%
-%INPUTS:
-%filename - string: filename of reaction text file
-%
-%OPTIONAL INPUTS:
-%log_val - logical: specifies if information should (true) or should not (false) be printed to screen (default: true)
-%
-%OUTPUTS:
-%reacts - cell array of strings: reactants for each reaction
-%prods - cell array of strings: products for each reaction
-%nu_r - cell array of doubles: stoichiometric number for each reactant
-%nu_p - cell array of doubles: stoichiometric number for each product
-%A_vec - vector of doubles: pre-exponential factors for each reaction
-%Ea_vec - vector of doubles: activation energy for each reaction
-%flag_rev - vector of logicals: true if reaction is reversible and false if not
-
-if nargin == 1
-    log_val = true;
-end
 
 %import each reaction line from the reaction text file
 rxn_lines = import_rxn_lines(filename);
@@ -49,7 +30,7 @@ for i = 1:n_rxn
     [reacts{:,i},prods{:,i},nu_r{:,i},nu_p{:,i},flag_rev(i)] = parse_rxn(split_line{1});
     
     %print reaction details
-    if log_val == true
+    if options.log == true
         fprintf('\nReaction %g\nReactants:',i)
         disp(reacts{:,i})
         fprintf('Products:')
@@ -68,7 +49,7 @@ for i = 1:n_rxn
     end
     
     %get A and Ea for each reaction
-    [A,Ea] = parse_arrhenius_parameters(rxn_lines{i});
+    [A,Ea] = parse_arrhenius_parameters(rxn_lines{i},inputs);
     
     %index accounting for double-counting of reversible reactions
     idx = i+rev_counter;
@@ -93,5 +74,8 @@ for i = 1:n_rxn
     end
     
 end
+
+rxn_struct = struct('reacts',{reacts},'prods',{prods},'nu_r',{nu_r},...
+    'nu_p',{nu_p},'A_vec',A_vec,'Ea_vec',Ea_vec,'flag_rev',flag_rev);
 
 end

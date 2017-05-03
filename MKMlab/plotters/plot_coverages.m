@@ -1,9 +1,5 @@
 function plot_coverages(sol)
 %plots fractional coverages
-%
-%INPUTS:
-%sol - structure obtained from run_mkm
-%
 
 figure
 %plot theta vs. t if QSS was not assumed
