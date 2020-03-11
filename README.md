@@ -1,2 +1,2 @@
 # MKMlab
-MATLAB program for microkinetic modeling in catalysis. This was just me playing around with things. I don't recommend using it at this point in time.
+MATLAB program for microkinetic modeling in catalysis. While the examples work, the program has not been extensively tested, so please use at your own risk.
